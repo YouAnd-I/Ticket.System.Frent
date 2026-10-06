@@ -1,9 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Ticket.Data;
 
 namespace Ticket.System.Frent;
 
-public sealed class TicketStore(string baseDir)
+public sealed class TicketStore(string baseDir) : ITicketStore
 {
     public const string FileName = "it-tickets.txt";
     public const string DirName = "it-tickets";
@@ -14,7 +15,6 @@ public sealed class TicketStore(string baseDir)
     private string DirPath => global::System.IO.Path.Combine(baseDir, DirName);
 
     public record Ticket(string Id, string Title, string Desc);
-    public record Solution(string Title, string? Text, string? Image);
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -56,7 +56,7 @@ public sealed class TicketStore(string baseDir)
         catch { return null; }
     }
 
-    public Solution? BestSolution(string? query)
+    public TicketSolution? BestSolution(string? query)
     {
         var words = (query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(w => w.Length > 1).ToArray();
@@ -65,7 +65,7 @@ public sealed class TicketStore(string baseDir)
         return Directory.EnumerateFiles(DirPath, "*.s.json")
             .Select(f =>
             {
-                try { return JsonSerializer.Deserialize<Solution>(File.ReadAllText(f), JsonOpts); }
+                try { return JsonSerializer.Deserialize<TicketSolution>(File.ReadAllText(f), JsonOpts); }
                 catch { return null; }
             })
             .Where(s => s is not null)

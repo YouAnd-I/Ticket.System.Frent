@@ -10,7 +10,7 @@ public partial struct AwaitingClassification
     public TicketCreate Create;
 }
 
-public sealed class TicketSystem(TicketStore store)
+public sealed class TicketSystem(ITicketStore store)
 {
     public void Execute(World world)
     {
