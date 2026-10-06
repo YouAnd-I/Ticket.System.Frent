@@ -4,7 +4,7 @@ using Ticket.Data;
 
 namespace Ticket.System.Frent;
 
-// Internal world state: while the laya adapter classifies, the /it request entity
+// Internal world state: while the classifier adapter classifies, the /it request entity
 // waits behind this component. It carries the original create request.
 public partial struct AwaitingClassification
 {
@@ -18,7 +18,7 @@ public partial struct AwaitingClassification
 // component) and its persisted form (TicketStore). Requests are messages: each
 // is answered with a response component on its own entity, and the loop despawns it.
 //
-// Classification is a world-initiated conversation with the laya adapter: a ticket
+// Classification is a world-initiated conversation with the classifier adapter: a ticket
 // created with priority Auto gets a PriorityClassifyRequested component on its
 // entity (the loop's delivery pass publishes it to subscribers); the /it request
 // waits behind AwaitingClassification until the adapter answers with a
@@ -32,7 +32,7 @@ public sealed class TicketSystem(TicketStore store)
         ApplyFollowUps(world);
     }
 
-    // 1. The laya adapter answered: ack it and finish the waiting /it requests.
+    // 1. The classifier adapter answered: ack it and finish the waiting /it requests.
     private void FinishClassifiedTickets(World world)
     {
         foreach (var row in world.Query<PriorityClassified>()
@@ -64,7 +64,7 @@ public sealed class TicketSystem(TicketStore store)
         }
     }
 
-    // 2. New tickets. Auto priority with text goes to the laya classifier first;
+    // 2. New tickets. Auto priority with text goes to the classifier adapter first;
     //    everything else (and Auto with no text — NoRush, like the classifier would)
     //    is answered right away.
     private void CreateTickets(World world)

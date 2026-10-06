@@ -59,7 +59,7 @@ public class TicketSystemTests : IDisposable
     }
 
     [Fact]
-    public void Create_AutoWithText_WaitsForClassification_AndAsksLaya()
+    public void Create_AutoWithText_WaitsForClassification_AndAsksTheClassifier()
     {
         using var world = new World();
         var request = world.Create(Create(TicketPriority.Auto));
@@ -85,7 +85,7 @@ public class TicketSystemTests : IDisposable
         Assert.Equal("no-rush", view.Priority);
         Assert.True(view.AutoClassified);
         Assert.False(view.ClassifierOffline);
-        Assert.Equal(0, Count<PriorityClassifyRequested>(world)); // laya never asked
+        Assert.Equal(0, Count<PriorityClassifyRequested>(world)); // classifier never asked
     }
 
     [Fact]
