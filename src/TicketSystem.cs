@@ -4,25 +4,12 @@ using Ticket.Data;
 
 namespace Ticket.System.Frent;
 
-// Internal world state: while the classifier adapter classifies, the /it request entity
-// waits behind this component. It carries the original create request.
 public partial struct AwaitingClassification
 {
     public string TicketId;
     public TicketCreate Create;
 }
 
-// The rules for IT tickets.
-//
-// A ticket is state that outlives its reply: it gets its own entity (the Ticket
-// component) and its persisted form (TicketStore). Requests are messages: each
-// is answered with a response component on its own entity, and the loop despawns it.
-//
-// Classification is a world-initiated conversation with the classifier adapter: a ticket
-// created with priority Auto gets a PriorityClassifyRequested component on its
-// entity (the loop's delivery pass publishes it to subscribers); the /it request
-// waits behind AwaitingClassification until the adapter answers with a
-// PriorityClassified request, and only then is the reply finished.
 public sealed class TicketSystem(TicketStore store)
 {
     public void Execute(World world)
@@ -32,7 +19,6 @@ public sealed class TicketSystem(TicketStore store)
         ApplyFollowUps(world);
     }
 
-    // 1. The classifier adapter answered: ack it and finish the waiting /it requests.
     private void FinishClassifiedTickets(World world)
     {
         foreach (var row in world.Query<PriorityClassified>()
@@ -40,7 +26,6 @@ public sealed class TicketSystem(TicketStore store)
         {
             var classified = row.Item1.Value;
 
-            // ack the adapter's request on its own entity
             var request = row.Entity;
             request.Add(new PriorityClassifiedAck());
             request.Remove<PriorityClassified>();
@@ -48,7 +33,6 @@ public sealed class TicketSystem(TicketStore store)
             var offline = classified.Offline || classified.Priority is null;
             var priority = offline ? TicketPriority.Urgent : classified.Priority!.Value;
 
-            // collect first: structural changes must not hit the query being iterated
             List<(Entity Waiting, AwaitingClassification State)>? waiting = null;
             foreach (var w in world.Query<AwaitingClassification>()
                          .EnumerateWithEntities<AwaitingClassification>())
@@ -64,9 +48,6 @@ public sealed class TicketSystem(TicketStore store)
         }
     }
 
-    // 2. New tickets. Auto priority with text goes to the classifier adapter first;
-    //    everything else (and Auto with no text — NoRush, like the classifier would)
-    //    is answered right away.
     private void CreateTickets(World world)
     {
         List<(Entity Request, TicketCreate Create)>? toCreate = null;
@@ -92,14 +73,13 @@ public sealed class TicketSystem(TicketStore store)
             }
             else
             {
-                var auto = create.RequestedPriority == TicketPriority.Auto; // empty text → NoRush, like the classifier
+                var auto = create.RequestedPriority == TicketPriority.Auto;
                 var priority = auto ? TicketPriority.NoRush : create.RequestedPriority;
                 FinalizeTicket(request, create, ticketId, priority, auto, offline: false);
             }
         }
     }
 
-    // 3. Follow-ups from the buttons on the card.
     private void ApplyFollowUps(World world)
     {
         foreach (var row in world.Query<TicketStatusChange>()
@@ -132,7 +112,7 @@ public sealed class TicketSystem(TicketStore store)
             var report = row.Item1.Value;
             store.AppendReport(report.ByUser, report.TicketId, report.Complaint,
                 report.Action, report.Anonymous, report.FileUrl);
-            store.AppendStatus(report.ByUser, report.TicketId, "complete"); // card says complete — persist it
+            store.AppendStatus(report.ByUser, report.TicketId, "complete");
             entity.Add(new TicketReported { View = View(report.TicketId) });
             entity.Remove<TicketReport>();
         }
@@ -146,8 +126,6 @@ public sealed class TicketSystem(TicketStore store)
         request.Add(new TicketCreated { View = View(ticketId) });
     }
 
-    // The store is the ticket's persisted form; this builds the plain snapshot a
-    // screen needs to draw the card (the IT solution lookup included).
     public TicketView View(string id)
     {
         var t = store.LoadJson(id);

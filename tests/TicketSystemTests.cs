@@ -19,7 +19,7 @@ public class TicketSystemTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, recursive: true); } catch { /* temp cleanup is best effort */ }
+        try { Directory.Delete(_dir, recursive: true); } catch { }
     }
 
     private static TicketCreate Create(TicketPriority priority = TicketPriority.Urgent,
@@ -54,7 +54,7 @@ public class TicketSystemTests : IDisposable
         Assert.Equal("printer on fire", view.Title);
         Assert.Equal("<@2>", view.Assignee);
         Assert.Equal("open", view.Status);
-        Assert.Equal(1, Count<TicketRecord>(world)); // the ticket's own entity outlives the reply
+        Assert.Equal(1, Count<TicketRecord>(world));
         Assert.True(File.Exists(Path.Combine(_dir, TicketStore.FileName)));
     }
 
@@ -66,7 +66,7 @@ public class TicketSystemTests : IDisposable
 
         _system.Execute(world);
 
-        Assert.False(request.Has<TicketCreated>()); // not answered yet
+        Assert.False(request.Has<TicketCreated>());
         var waiting = request.Get<AwaitingClassification>();
         Assert.Equal("printer on fire it smells",
             Single<PriorityClassifyRequested>(world).Text);
@@ -85,7 +85,7 @@ public class TicketSystemTests : IDisposable
         Assert.Equal("no-rush", view.Priority);
         Assert.True(view.AutoClassified);
         Assert.False(view.ClassifierOffline);
-        Assert.Equal(0, Count<PriorityClassifyRequested>(world)); // classifier never asked
+        Assert.Equal(0, Count<PriorityClassifyRequested>(world));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class TicketSystemTests : IDisposable
         });
         _system.Execute(world);
 
-        Assert.False(classify.Has<PriorityClassified>()); // acked and consumed
+        Assert.False(classify.Has<PriorityClassified>());
         Assert.False(request.Has<AwaitingClassification>());
 
         var view = request.Get<TicketCreated>().View;
@@ -183,7 +183,7 @@ public class TicketSystemTests : IDisposable
 
         Assert.Equal("complete", report.Get<TicketReported>().View.Status);
         var log = File.ReadAllText(Path.Combine(_dir, TicketStore.FileName));
-        Assert.Contains("user=anonymous", log); // the report line honors anonymity
+        Assert.Contains("user=anonymous", log);
         Assert.Contains("status=complete", log);
     }
 

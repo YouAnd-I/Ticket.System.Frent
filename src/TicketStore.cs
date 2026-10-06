@@ -3,9 +3,6 @@ using System.Text.Json.Nodes;
 
 namespace Ticket.System.Frent;
 
-// Ticket storage — append-only txt, parseable "key=value" fields so we can search back,
-// plus one JSON file per ticket and IT-written solution files ({slug}.s.json).
-// Instance-based so tests can point it at a temp directory; the bot uses Default.
 public sealed class TicketStore(string baseDir)
 {
     public const string FileName = "it-tickets.txt";
@@ -59,7 +56,6 @@ public sealed class TicketStore(string baseDir)
         catch { return null; }
     }
 
-    // Solutions written by IT as {slug}.s.json — { "title": "...", "text": "...", "image": "url" }
     public Solution? BestSolution(string? query)
     {
         var words = (query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -96,7 +92,6 @@ public sealed class TicketStore(string baseDir)
         UpdateJson(id, n => n["status"] = status);
     }
 
-    // Returns this ticket's note count after appending
     public int AppendNote(string user, string id, string note)
     {
         File.AppendAllText(LogPath,
@@ -130,7 +125,6 @@ public sealed class TicketStore(string baseDir)
             $"[{DateTimeOffset.UtcNow:u}] user={(anonymous ? "anonymous" : user)} ticket={id} report | complaint={Clean(complaint)} | action={Clean(action)}" +
             (file is null ? "" : $" | file={file}") + "\n");
 
-    // Time since the ticket's creation line
     public TimeSpan? Age(string id)
     {
         if (!File.Exists(LogPath)) return null;
@@ -161,7 +155,6 @@ public sealed class TicketStore(string baseDir)
         return list;
     }
 
-    // Silly search: score = words found in title or description
     public IEnumerable<Ticket> Similar(string? query, int take = 25, string? excludeId = null)
     {
         var words = (query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
