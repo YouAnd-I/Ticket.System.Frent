@@ -44,7 +44,7 @@ public sealed class TicketSystem(ITicketStore store)
             {
                 entity.Remove<AwaitingClassification>();
                 FinalizeTicket(entity, state.Create, state.TicketId, priority, auto: !offline, offline,
-                    classified.Category);
+                    classified.AssigneeStaffId);
             }
         }
     }
@@ -65,12 +65,14 @@ public sealed class TicketSystem(ITicketStore store)
             if (create.RequestedPriority == TicketPriority.Auto
                 && !string.IsNullOrWhiteSpace($"{create.Title} {create.Description}"))
             {
+                var now = DateTimeOffset.UtcNow;
                 ticket.Add(new PriorityClassifyRequested
                 {
                     TicketId = ticketId,
                     Text = $"{create.Title} {create.Description}",
-                    Categories = [.. store.Categories()],
-                    NowUtc = DateTimeOffset.UtcNow.ToString("u"),
+                    Priorities = [.. store.Priorities()],
+                    AvailableStaff = [.. store.AvailableStaff(now)],
+                    NowUtc = now.ToString("u"),
                 });
                 request.Add(new AwaitingClassification { TicketId = ticketId, Create = create });
             }
@@ -78,7 +80,7 @@ public sealed class TicketSystem(ITicketStore store)
             {
                 var auto = create.RequestedPriority == TicketPriority.Auto;
                 var priority = auto ? TicketPriority.NoRush : create.RequestedPriority;
-                FinalizeTicket(request, create, ticketId, priority, auto, offline: false, category: null);
+                FinalizeTicket(request, create, ticketId, priority, auto, offline: false, assigneeStaffId: null);
             }
         }
     }
@@ -122,11 +124,13 @@ public sealed class TicketSystem(ITicketStore store)
     }
 
     private void FinalizeTicket(Entity request, TicketCreate create, string ticketId,
-        TicketPriority priority, bool auto, bool offline, string? category)
+        TicketPriority priority, bool auto, bool offline, string? assigneeStaffId)
     {
         var assignee = create.Assignee;
-        if (assignee is null && store.Route(category, DateTimeOffset.UtcNow) is { StaffIds.Count: > 0 } route)
-            assignee = string.Join(", ", route.StaffIds.Select(id => $"<@{id}>"));
+        if (assignee is null && assigneeStaffId is { } staffId)
+            assignee = $"<@{staffId}>";
+        if (assignee is null && store.Route(DateTimeOffset.UtcNow) is { StaffIds.Count: > 0 } route)
+            assignee = $"<@{route.StaffIds[0]}>";
         store.Append(create.Requester, ticketId, PriorityName(priority), auto, offline,
             create.Title, create.Description, create.AttachmentUrl, assignee);
         request.Add(new TicketCreated { View = View(ticketId) });

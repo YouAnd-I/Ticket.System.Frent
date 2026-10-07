@@ -171,9 +171,11 @@ public class TicketStore(string baseDir) : ITicketStore
             .Select(x => x.t);
     }
 
-    public virtual IReadOnlyList<TicketCategory> Categories() => [];
+    public virtual IReadOnlyList<PriorityOption> Priorities() => [];
 
-    public virtual TicketRoute Route(string? categorySlug, DateTimeOffset nowUtc) => TicketRoute.None;
+    public virtual IReadOnlyList<StaffMember> AvailableStaff(DateTimeOffset nowUtc) => [];
+
+    public virtual TicketRoute Route(DateTimeOffset nowUtc) => TicketRoute.None;
 
     private static string? Clean(string? s) =>
         s?.Replace("\r", " ").Replace("\n", " ").Replace("|", "/");

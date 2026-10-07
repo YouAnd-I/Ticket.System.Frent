@@ -198,22 +198,27 @@ public class TicketSystemTests : IDisposable
 
     private sealed class RoutingStore(string baseDir) : TicketStore(baseDir)
     {
-        public static readonly TicketCategory[] TestCategories =
-            [new("network", "wifi, VPN, DNS"), new("hardware", "printers, laptops")];
+        public static readonly PriorityOption[] TestPriorities =
+            [new("urgent", "broken right now"), new("no-rush", "can wait")];
 
-        public string? RoutedCategory { get; private set; }
+        public static readonly StaffMember[] TestStaff =
+            [new("7", "Bob", "printers, laptops"), new("42", "Alice", "wifi, VPN, DNS")];
 
-        public override IReadOnlyList<TicketCategory> Categories() => TestCategories;
+        public bool FellBackToRoute { get; private set; }
 
-        public override TicketRoute Route(string? categorySlug, DateTimeOffset nowUtc)
+        public override IReadOnlyList<PriorityOption> Priorities() => TestPriorities;
+
+        public override IReadOnlyList<StaffMember> AvailableStaff(DateTimeOffset nowUtc) => TestStaff;
+
+        public override TicketRoute Route(DateTimeOffset nowUtc)
         {
-            RoutedCategory = categorySlug;
+            FellBackToRoute = true;
             return new TicketRoute([42UL, 7UL]);
         }
     }
 
     [Fact]
-    public void Classified_CategoryRoutesToStaff_WhenNoAssigneeWasGiven()
+    public void Classified_ModelPickBecomesAssignee_WhenNoAssigneeWasGiven()
     {
         var store = new RoutingStore(_dir);
         var system = new TicketSystem(store);
@@ -227,7 +232,8 @@ public class TicketSystemTests : IDisposable
         system.Execute(world);
 
         var notification = Single<PriorityClassifyRequested>(world);
-        Assert.Equal(RoutingStore.TestCategories, notification.Categories);
+        Assert.Equal(RoutingStore.TestPriorities, notification.Priorities);
+        Assert.Equal(RoutingStore.TestStaff, notification.AvailableStaff);
         Assert.False(string.IsNullOrWhiteSpace(notification.NowUtc));
 
         system.Execute(world);
@@ -235,13 +241,37 @@ public class TicketSystemTests : IDisposable
         {
             TicketId = request.Get<AwaitingClassification>().TicketId,
             Priority = TicketPriority.Urgent,
-            Category = "network",
+            AssigneeStaffId = "42",
         });
         system.Execute(world);
 
-        Assert.Equal("network", store.RoutedCategory);
-        var view = request.Get<TicketCreated>().View;
-        Assert.Equal("<@42>, <@7>", view.Assignee);
+        Assert.False(store.FellBackToRoute);
+        Assert.Equal("<@42>", request.Get<TicketCreated>().View.Assignee);
+    }
+
+    [Fact]
+    public void Classified_WithoutAPick_FallsBackToFirstRoutedStaff()
+    {
+        var store = new RoutingStore(_dir);
+        var system = new TicketSystem(store);
+        var world = new World();
+        var request = world.Create(new TicketCreate
+        {
+            Title = "vpn down",
+            RequestedPriority = TicketPriority.Auto,
+            Requester = "<@1>",
+        });
+        system.Execute(world);
+
+        world.Create(new PriorityClassified
+        {
+            TicketId = request.Get<AwaitingClassification>().TicketId,
+            Priority = TicketPriority.Urgent,
+        });
+        system.Execute(world);
+
+        Assert.True(store.FellBackToRoute);
+        Assert.Equal("<@42>", request.Get<TicketCreated>().View.Assignee);
     }
 
     [Fact]
@@ -253,7 +283,7 @@ public class TicketSystemTests : IDisposable
         var request = world.Create(Create(TicketPriority.Urgent) with { Assignee = "<@9>" });
         system.Execute(world);
 
-        Assert.Null(store.RoutedCategory);
+        Assert.False(store.FellBackToRoute);
         Assert.Equal("<@9>", request.Get<TicketCreated>().View.Assignee);
     }
 }
