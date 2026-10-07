@@ -43,7 +43,8 @@ public sealed class TicketSystem(ITicketStore store)
             foreach (var (entity, state) in waiting)
             {
                 entity.Remove<AwaitingClassification>();
-                FinalizeTicket(entity, state.Create, state.TicketId, priority, auto: !offline, offline);
+                FinalizeTicket(entity, state.Create, state.TicketId, priority, auto: !offline, offline,
+                    classified.Category);
             }
         }
     }
@@ -68,6 +69,8 @@ public sealed class TicketSystem(ITicketStore store)
                 {
                     TicketId = ticketId,
                     Text = $"{create.Title} {create.Description}",
+                    Categories = [.. store.Categories()],
+                    NowUtc = DateTimeOffset.UtcNow.ToString("u"),
                 });
                 request.Add(new AwaitingClassification { TicketId = ticketId, Create = create });
             }
@@ -75,7 +78,7 @@ public sealed class TicketSystem(ITicketStore store)
             {
                 var auto = create.RequestedPriority == TicketPriority.Auto;
                 var priority = auto ? TicketPriority.NoRush : create.RequestedPriority;
-                FinalizeTicket(request, create, ticketId, priority, auto, offline: false);
+                FinalizeTicket(request, create, ticketId, priority, auto, offline: false, category: null);
             }
         }
     }
@@ -119,10 +122,13 @@ public sealed class TicketSystem(ITicketStore store)
     }
 
     private void FinalizeTicket(Entity request, TicketCreate create, string ticketId,
-        TicketPriority priority, bool auto, bool offline)
+        TicketPriority priority, bool auto, bool offline, string? category)
     {
+        var assignee = create.Assignee;
+        if (assignee is null && store.Route(category, DateTimeOffset.UtcNow) is { StaffIds.Count: > 0 } route)
+            assignee = string.Join(", ", route.StaffIds.Select(id => $"<@{id}>"));
         store.Append(create.Requester, ticketId, PriorityName(priority), auto, offline,
-            create.Title, create.Description, create.AttachmentUrl, create.Assignee);
+            create.Title, create.Description, create.AttachmentUrl, assignee);
         request.Add(new TicketCreated { View = View(ticketId) });
     }
 

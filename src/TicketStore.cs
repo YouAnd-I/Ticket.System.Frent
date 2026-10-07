@@ -4,7 +4,7 @@ using Ticket.Data;
 
 namespace Ticket.System.Frent;
 
-public sealed class TicketStore(string baseDir) : ITicketStore
+public class TicketStore(string baseDir) : ITicketStore
 {
     public const string FileName = "it-tickets.txt";
     public const string DirName = "it-tickets";
@@ -170,6 +170,10 @@ public sealed class TicketStore(string baseDir) : ITicketStore
             .Take(take)
             .Select(x => x.t);
     }
+
+    public virtual IReadOnlyList<TicketCategory> Categories() => [];
+
+    public virtual TicketRoute Route(string? categorySlug, DateTimeOffset nowUtc) => TicketRoute.None;
 
     private static string? Clean(string? s) =>
         s?.Replace("\r", " ").Replace("\n", " ").Replace("|", "/");
