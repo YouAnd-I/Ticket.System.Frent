@@ -174,7 +174,6 @@ public sealed class TicketSystem(ITicketStore store)
     {
         TicketPriority.Auto => "auto",
         TicketPriority.NoRush => "no-rush",
-        TicketPriority.Report => "report",
         _ => "urgent",
     };
 }
